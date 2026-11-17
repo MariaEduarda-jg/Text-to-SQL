@@ -1,0 +1,19 @@
+[
+  {
+    "benchmark": "test",
+    "model": "mock:random",
+    "mode": "caption",
+    "n": 860,
+    "acc": 19.9,
+    "ci95": [
+      17.2,
+      22.6
+    ],
+    "unparsed_%": 0.0,
+    "avg_tokens": 0,
+    "acc_humanas": 18.3,
+    "acc_linguagens": 21.2,
+    "acc_matematica": 18.1,
+    "acc_natureza": 21.6
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "benchmark": "test",
+  "model": "mock:random",
+  "mode": "caption",
+  "cot": true,
+  "n_samples": 1,
+  "temperature": 0.0,
+  "max_tokens": 2048,
+  "permutation_seed": null,
+  "limit": null,
+  "tag": ""
+}

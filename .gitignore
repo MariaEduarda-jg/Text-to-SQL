@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.env
+
+# dados e saídas grandes (são regenerados pelos scripts)
+data/raw/
+data/processed/
+data/images/
+outputs/
+checkpoints/
+wandb/
+
+# resultados de avaliação SÃO versionados (são pequenos e são a prova do trabalho)
+!results/
+
+Screenshot*.png

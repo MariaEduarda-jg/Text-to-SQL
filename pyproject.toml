@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vestibular-br"
+version = "0.1.0"
+description = "Ensinando um modelo pequeno a raciocinar em provas brasileiras (ENEM, USP/Unicamp, OAB) com SFT e GRPO."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "polars>=1.0",
+    "huggingface_hub>=0.25",
+    "openai>=1.40",
+    "typer>=0.12",
+    "tqdm>=4.66",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+# Treino e inferência local: rodar no Kaggle/Colab (GPU), não no Windows local.
+train = [
+    "torch>=2.4",
+    "transformers>=4.56",
+    "trl>=0.23",
+    "peft>=0.17",
+    "accelerate>=1.0",
+    "unsloth",
+]
+vllm = ["vllm>=0.10"]
+app = ["gradio>=5.0"]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+vbr = "vestibular.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008"]
