@@ -1,5 +1,3 @@
-"""Agrega todas as execuções em results/runs/ e gera leaderboard + gráficos."""
-
 from __future__ import annotations
 
 import json
@@ -115,7 +113,6 @@ def plots(runs: list[dict], out_dir: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     made = []
 
-    # 1) Acurácia por prova/ano (contaminação: cai nas provas mais novas?)
     fig, ax = plt.subplots(figsize=(9, 4.5))
     for r in runs:
         c = r["config"]
@@ -140,7 +137,6 @@ def plots(runs: list[dict], out_dir: Path) -> list[Path]:
     plt.close(fig)
     made.append(p)
 
-    # 2) Imagem vs. descrição vs. sem imagem (só questões com imagem)
     by_model: dict[str, dict[str, float]] = defaultdict(dict)
     for r in runs:
         c = r["config"]
@@ -167,7 +163,6 @@ def plots(runs: list[dict], out_dir: Path) -> list[Path]:
         plt.close(fig)
         made.append(p)
 
-    # 3) Curvas de recompensa do GRPO (se o log foi copiado para results/training/)
     for log in Path("results/training").glob("*/log_history.json"):
         hist = json.loads(log.read_text(encoding="utf-8"))
         steps = [h["step"] for h in hist if "reward" in h]

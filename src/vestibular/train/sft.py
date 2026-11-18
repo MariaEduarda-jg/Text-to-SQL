@@ -1,9 +1,3 @@
-"""Etapa 1 — SFT: ensina o modelo pequeno a imitar os raciocínios corretos do professor.
-
-Rodar na GPU (Kaggle/Colab):
-    python -m vestibular.train.sft --data data/sft/train_sft.jsonl --out outputs/sft
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -24,7 +18,7 @@ def main():
     ap.add_argument("--push-to", default=None, help="repo no HF Hub, ex.: seu-usuario/vestibular-br-2b-sft")
     args = ap.parse_args()
 
-    from datasets import Dataset  # disponível no Kaggle/Colab
+    from datasets import Dataset
     from trl import SFTConfig, SFTTrainer
 
     from vestibular.train.common import bf16_ok, load_model, render_prompt, text_tokenizer
@@ -40,7 +34,6 @@ def main():
         }
         for r in rows
     ]
-    # Remove exemplos que não cabem no contexto (seriam truncados e ensinariam errado).
     data = [d for d in data if len(tok(d["prompt"] + d["completion"]).input_ids) <= args.max_seq_length]
     print(f"{len(data)} exemplos de treino")
     ds = Dataset.from_list(data).shuffle(seed=42)
@@ -54,7 +47,7 @@ def main():
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
         max_length=args.max_seq_length,
-        completion_only_loss=True,  # perda só na resposta, não no enunciado
+        completion_only_loss=True,
         bf16=bf16_ok(),
         fp16=not bf16_ok(),
         logging_steps=5,

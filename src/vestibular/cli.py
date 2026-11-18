@@ -1,13 +1,3 @@
-"""Linha de comando: `vbr --help`.
-
-vbr data                                   # baixa e prepara todos os datasets
-vbr eval -b enem_2024 -m gemini:gemini-2.5-flash
-vbr eval -b enem -m gemini:gemini-2.5-flash --mode image
-vbr contamination -b test -m gemini:gemini-2.5-flash --seeds 1 2
-vbr distill -m gemini:gemini-2.5-flash --k 4
-vbr report
-"""
-
 from __future__ import annotations
 
 import json
@@ -33,12 +23,12 @@ def _load_env() -> None:
                 os.environ.setdefault(k.strip(), v.strip().strip('"'))
 
 
-def _backend_kwargs(model: str, concurrency: int, lora: str | None) -> dict:
+def _backend_kwargs(model: str, concurrency: int, lora: str | None, rpm: int | None = None) -> dict:
     if model.startswith("vllm:"):
         return {"lora": lora}
     if model.startswith("mock:"):
         return {}
-    return {"concurrency": concurrency}
+    return {"concurrency": concurrency, "rpm": rpm}
 
 
 @app.callback()
@@ -61,7 +51,7 @@ def eval_cmd(
     benchmark: str = typer.Option(
         ..., "-b", help="enem_2022|enem_2023|enem_2024|enem|bluex_test|dev|test|..."
     ),
-    model: str = typer.Option(..., "-m", help="provedor:modelo, ex. gemini:gemini-2.5-flash"),
+    model: str = typer.Option(..., "-m", help="provedor:modelo, ex. gemini:gemini-3.5-flash"),
     mode: str = typer.Option("caption", help="caption|image|blind"),
     cot: bool = typer.Option(True, help="raciocínio passo a passo (--no-cot = só a letra)"),
     n: int = typer.Option(1, help="amostras por questão (>1 = self-consistency)"),
@@ -72,14 +62,15 @@ def eval_cmd(
     lora: str = typer.Option(None, help="(vllm) caminho/repo do adaptador LoRA"),
     tag: str = typer.Option("", help="rótulo extra no nome da execução, ex. sft, grpo"),
     concurrency: int = 8,
+    rpm: int = typer.Option(None, help="limite de requisições por minuto"),
 ):
     """Avalia um modelo em um benchmark."""
     from vestibular.backends import get_backend
     from vestibular.data.splits import load_split
     from vestibular.eval.metrics import summarize
-    from vestibular.eval.runner import RunConfig, load_predictions, run_eval
+    from vestibular.eval.runner import RunConfig, count_errors, load_predictions, run_eval
 
-    backend = get_backend(model, **_backend_kwargs(model, concurrency, lora))
+    backend = get_backend(model, **_backend_kwargs(model, concurrency, lora, rpm))
     cfg = RunConfig(benchmark, model, mode, cot, n, temperature, max_tokens, perm_seed, limit, tag)
     path = run_eval(load_split(benchmark), backend, cfg)
     s = summarize(load_predictions(path))
@@ -89,6 +80,8 @@ def eval_cmd(
     )
     for area, v in s["by_area"].items():
         typer.echo(f"  {area:12s} {100 * v['acc']:5.1f}%  (n={v['n']})")
+    if errors := count_errors(path):
+        typer.echo(f"\n{errors} questões com erro de API; rode o mesmo comando de novo para completar.")
 
 
 @app.command()
@@ -97,13 +90,14 @@ def contamination(
     model: str = typer.Option(..., "-m"),
     seeds: list[int] = typer.Option([1, 2], help="sementes de permutação"),
     concurrency: int = 8,
+    rpm: int = typer.Option(None),
 ):
     """Roda o benchmark original + versões com alternativas embaralhadas."""
     from vestibular.backends import get_backend
     from vestibular.data.splits import load_split
     from vestibular.eval.runner import RunConfig, run_eval
 
-    backend = get_backend(model, **_backend_kwargs(model, concurrency, None))
+    backend = get_backend(model, **_backend_kwargs(model, concurrency, None, rpm))
     qs = load_split(benchmark)
     for seed in [None, *seeds]:
         run_eval(qs, backend, RunConfig(benchmark, model, permutation_seed=seed))
@@ -117,7 +111,10 @@ def distill(
     split: str = "train",
     out: Path = Path("data/sft/train_sft.jsonl"),
     limit: int = typer.Option(None),
+    max_tokens: int = 2048,
+    batch_size: int = typer.Option(16, help="use valores altos (ex. 512) com vllm"),
     concurrency: int = 8,
+    rpm: int = typer.Option(None),
 ):
     """Gera o dataset de SFT por rejection sampling com um modelo professor."""
     from vestibular.backends import get_backend
@@ -127,7 +124,8 @@ def distill(
     qs = load_split(split)
     if limit:
         qs = qs[:limit]
-    build_sft_dataset(qs, get_backend(model, concurrency=concurrency), out, k=k)
+    backend = get_backend(model, **_backend_kwargs(model, concurrency, None, rpm))
+    build_sft_dataset(qs, backend, out, k=k, max_tokens=max_tokens, batch_size=batch_size)
 
 
 @app.command()

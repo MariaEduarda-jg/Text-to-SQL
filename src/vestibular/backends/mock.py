@@ -1,8 +1,3 @@
-"""Baseline aleatório ("chute"). Serve para dois propósitos:
-1. linha de base honesta no leaderboard (quanto se acerta chutando?);
-2. testar o pipeline inteiro no CI sem API e sem GPU.
-"""
-
 from __future__ import annotations
 
 import random

@@ -1,11 +1,3 @@
-"""Monta as mensagens de chat enviadas aos modelos.
-
-Três modos para a questão de pesquisa "imagem vs. descrição":
-    caption : cada [IMAGEM i] vira a descrição textual da imagem (modelo só-texto)
-    image   : as imagens são enviadas de verdade (modelo multimodal)
-    blind   : as imagens são removidas sem descrição (o quanto a imagem importa?)
-"""
-
 from __future__ import annotations
 
 import random
@@ -41,7 +33,7 @@ def _render_images(text: str, q: Question, mode: str, used: set[int]) -> str:
             return f"[IMAGEM {i}: {cap}]"
         if mode == "blind":
             return "[imagem omitida]"
-        return m.group(0)  # image: mantém o marcador; a imagem vai anexada
+        return m.group(0)
 
     return _IMG_RE.sub(repl, text)
 
@@ -55,7 +47,6 @@ def render_question(q: Question, mode: str = "caption") -> str:
     alts = [_render_images(a, q, mode, used) for a in q.alternatives]
     body = stmt + "\n\n" + "\n".join(f"{LETTERS[i]}) {a}" for i, a in enumerate(alts))
 
-    # Imagens que existem mas não têm marcador no texto: anexa a descrição no fim.
     if mode == "caption":
         extra = [f"[IMAGEM {i}: {c}]" for i, c in enumerate(q.captions) if i not in used and c]
         if extra:
@@ -79,11 +70,7 @@ def build_messages(q: Question, mode: str = "caption", cot: bool = True) -> list
 
 
 def permute_alternatives(q: Question, seed: int) -> Question:
-    """Embaralha as alternativas e corrige o gabarito.
-
-    Usado no teste de contaminação: um modelo que *entende* a questão acerta
-    com qualquer ordem; um que *decorou* "a resposta é C" erra quando a ordem muda.
-    """
+    """Embaralha as alternativas e corrige o gabarito."""
     rng = random.Random(f"{q.id}-{seed}")
     order = list(range(len(q.alternatives)))
     while True:

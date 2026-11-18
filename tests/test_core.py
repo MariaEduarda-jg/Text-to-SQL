@@ -1,5 +1,3 @@
-"""Testes que rodam sem internet e sem GPU (são os que o CI executa)."""
-
 from vestibular.data.loaders import (
     bluex_row_to_question,
     enem_area,
@@ -24,16 +22,15 @@ def make_q(**kw) -> Question:
     return Question(**base)
 
 
-# ------------------------------------------------------------------ parsing
 def test_extract_answer_formats():
     assert extract_answer("blá blá\nResposta: C", "ABCDE") == "C"
-    assert extract_answer("Resposta: A ... na verdade, Resposta: D") == "D"  # última vale
+    assert extract_answer("Resposta: A ... na verdade, Resposta: D") == "D"
     assert extract_answer("A alternativa correta é a E.") == "E"
     assert extract_answer("\\boxed{B}") == "B"
     assert extract_answer("**Resposta final:** (A)") == "A"
     assert extract_answer("B") == "B"
     assert extract_answer("não sei") is None
-    assert extract_answer("Resposta: E", valid="ABCD") is None  # OAB só tem A-D
+    assert extract_answer("Resposta: E", valid="ABCD") is None
     assert extract_answer("<think>Resposta: A</think> Resposta: C") == "C"
 
 
@@ -42,7 +39,6 @@ def test_follows_format():
     assert not follows_format("Resposta: B, porque...")
 
 
-# ------------------------------------------------------------------ loaders
 def test_enem_area_mapping():
     assert enem_area(1) == "linguagens"
     assert enem_area(45) == "linguagens"
@@ -86,7 +82,6 @@ def test_oab_row():
     assert oab_row_to_question({**row, "nullified": True}) is None
 
 
-# ------------------------------------------------------------------ prompts
 def test_render_modes():
     q = make_q()
     assert "um quadro com 2+2" in render_question(q, "caption")
@@ -111,7 +106,6 @@ def test_permutation_keeps_correct_content():
         assert p.alternatives != q.alternatives
 
 
-# ------------------------------------------------------------------ métricas
 def test_majority_vote():
     assert _majority(["A", "B", "B"]) == "B"
     assert _majority([None, None]) is None
@@ -139,7 +133,6 @@ def test_permutation_consistency():
     assert r["drop"] == 0.5 and r["fragile_rate"] == 0.5
 
 
-# ------------------------------------------------------------------ recompensas
 def test_rewards():
     comps = ["...\nResposta: B", "...\nResposta: A", "sem resposta"]
     assert correctness_reward(comps, answer=["B", "B", "B"]) == [1.0, 0.0, 0.0]

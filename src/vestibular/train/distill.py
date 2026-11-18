@@ -1,17 +1,3 @@
-"""Gera o dataset de SFT por *rejection sampling* (destilação de raciocínio).
-
-1. Um modelo "professor" grande (via API) resolve cada questão de treino k vezes.
-2. Guardamos só os raciocínios que chegaram na resposta CERTA e no formato certo.
-3. Entre os corretos, escolhemos o mais curto (raciocínio direto ao ponto).
-
-Resultado: exemplos de "como raciocinar" verificados pelo gabarito — sem
-precisar de anotação humana. É a mesma ideia do STaR / rejection sampling
-usados no pós-treino de modelos de raciocínio.
-
-Também salvamos a taxa de acerto do professor por questão (`teacher_pass_rate`),
-um proxy de dificuldade útil para análise e para filtrar o GRPO.
-"""
-
 from __future__ import annotations
 
 import json

@@ -1,9 +1,3 @@
-"""Backend vLLM offline — para avaliar os modelos treinados na GPU (Kaggle/Colab).
-
-Aceita um adaptador LoRA opcional, então dá para avaliar o modelo base e o
-modelo treinado sem precisar fazer merge dos pesos.
-"""
-
 from __future__ import annotations
 
 import time
@@ -25,18 +19,17 @@ class VLLMBackend(Backend):
         import os
 
         import torch
-        from vllm import LLM  # import tardio: vLLM só existe no ambiente com GPU
+        from vllm import LLM
 
         self.name = f"vllm:{model}" + (f"+{lora}" if lora else "")
-        if lora and not os.path.exists(lora):  # repo do HF Hub → baixa para disco
+        if lora and not os.path.exists(lora):
             from huggingface_hub import snapshot_download
 
             lora = snapshot_download(lora)
         self.lora = lora
         self.enable_thinking = enable_thinking
         if dtype == "auto" and not torch.cuda.is_bf16_supported():
-            dtype = "float16"  # GPUs T4/P100 (Kaggle/Colab grátis) não suportam bf16
-        # Kaggle "T4 x2": VLLM_TP=2 divide o modelo entre as duas GPUs (cabe o 9B).
+            dtype = "float16"
         tp = int(os.environ.get("VLLM_TP", "1"))
         self.llm = LLM(
             model=model,

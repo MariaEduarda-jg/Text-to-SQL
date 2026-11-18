@@ -1,9 +1,3 @@
-"""Roda um modelo em um benchmark e salva cada predição em JSONL.
-
-O arquivo é *retomável*: se a execução cair no meio (rate limit, sessão do
-Kaggle expirou...), rodar de novo só processa o que falta.
-"""
-
 from __future__ import annotations
 
 import json
@@ -27,12 +21,12 @@ RESULTS_DIR = Path("results/runs")
 class RunConfig:
     benchmark: str
     model: str
-    mode: str = "caption"  # caption | image | blind
+    mode: str = "caption"
     cot: bool = True
     n_samples: int = 1
     temperature: float = 0.0
     max_tokens: int = 2048
-    permutation_seed: int | None = None  # se definido, embaralha as alternativas
+    permutation_seed: int | None = None
     limit: int | None = None
     tag: str = ""
 
@@ -121,11 +115,19 @@ def _majority(preds: list[str | None]) -> str | None:
     return max(dict.fromkeys(valid), key=valid.count)
 
 
-def load_predictions(path: str | Path) -> list[dict]:
+def load_predictions(path: str | Path, include_errors: bool = False) -> list[dict]:
     """Lê predições; se a mesma questão aparece mais de uma vez (retry), fica a última."""
     by_q: dict[str, dict] = {}
     with Path(path).open(encoding="utf-8") as f:
         for line in f:
             rec = json.loads(line)
+            if rec.get("error") and rec["qid"] in by_q and not by_q[rec["qid"]].get("error"):
+                continue
             by_q[rec["qid"]] = rec
-    return list(by_q.values())
+    if include_errors:
+        return list(by_q.values())
+    return [r for r in by_q.values() if not r.get("error")]
+
+
+def count_errors(path: str | Path) -> int:
+    return sum(1 for r in load_predictions(path, include_errors=True) if r.get("error"))

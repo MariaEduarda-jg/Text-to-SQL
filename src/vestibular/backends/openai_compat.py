@@ -1,9 +1,3 @@
-"""Backend para qualquer API compatível com OpenAI (OpenAI, Gemini, Claude, HF, Maritaca...).
-
-Chamadas são assíncronas com limite de concorrência e retry com backoff
-exponencial — APIs gratuitas devolvem erro 429 (rate limit) com frequência.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +9,6 @@ from openai import AsyncOpenAI
 
 from vestibular.backends.base import Backend, Completion
 
-# provedor -> (base_url, variável de ambiente com a chave)
 PROVIDERS: dict[str, tuple[str | None, str]] = {
     "openai": (None, "OPENAI_API_KEY"),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "GEMINI_API_KEY"),
@@ -28,7 +21,9 @@ PROVIDERS: dict[str, tuple[str | None, str]] = {
 
 
 class OpenAICompatBackend(Backend):
-    def __init__(self, provider: str, model: str, concurrency: int = 8, max_retries: int = 6):
+    def __init__(
+        self, provider: str, model: str, concurrency: int = 8, max_retries: int = 8, rpm: int | None = None
+    ):
         if provider not in PROVIDERS:
             raise ValueError(f"Provedor desconhecido {provider!r}. Opções: {', '.join(PROVIDERS)}")
         base_url, key_env = PROVIDERS[provider]
@@ -39,11 +34,14 @@ class OpenAICompatBackend(Backend):
         self.model = model
         self.concurrency = concurrency
         self.max_retries = max_retries
-        self._client_kwargs = {"base_url": base_url, "api_key": api_key}
+        self.min_interval = 60 / rpm if rpm else 0.0
+        self._next_slot = 0.0
+        self._client_kwargs = {"base_url": base_url, "api_key": api_key, "timeout": 180, "max_retries": 0}
 
     async def _one(self, client: AsyncOpenAI, sem: asyncio.Semaphore, messages, temperature, max_tokens):
         async with sem:
             for attempt in range(self.max_retries):
+                await self._throttle()
                 t0 = time.perf_counter()
                 try:
                     r = await client.chat.completions.create(
@@ -59,18 +57,26 @@ class OpenAICompatBackend(Backend):
                         completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
                         latency_s=time.perf_counter() - t0,
                     )
-                except Exception as e:  # noqa: BLE001 — qualquer erro de rede/API entra no retry
+                except Exception as e:  # noqa: BLE001
                     status = getattr(e, "status_code", None)
                     retriable = status is None or status == 429 or status >= 500
                     if not retriable or attempt == self.max_retries - 1:
                         return Completion(text="", error=f"{type(e).__name__}: {e}"[:500])
-                    await asyncio.sleep(min(60, 2**attempt + random.random()))
+                    await asyncio.sleep(min(60, 2 ** (attempt + 1) + random.random()))
         return Completion(text="", error="unreachable")
+
+    async def _throttle(self):
+        if not self.min_interval:
+            return
+        now = time.monotonic()
+        wait = self._next_slot - now
+        self._next_slot = max(now, self._next_slot) + self.min_interval
+        if wait > 0:
+            await asyncio.sleep(wait)
 
     async def _run(self, conversations, n, temperature, max_tokens):
         client = AsyncOpenAI(**self._client_kwargs)
         sem = asyncio.Semaphore(self.concurrency)
-        # Nem todo provedor aceita o parâmetro `n`, então fazemos n chamadas separadas.
         tasks = [
             self._one(client, sem, conv, temperature, max_tokens) for conv in conversations for _ in range(n)
         ]

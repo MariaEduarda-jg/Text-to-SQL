@@ -1,11 +1,3 @@
-"""Métricas com rigor estatístico.
-
-Benchmarks pequenos (~180 questões por prova) têm muito ruído: uma diferença
-de 2 pontos percentuais pode ser sorte. Por isso reportamos sempre:
-- intervalo de confiança de 95% por bootstrap;
-- teste pareado (McNemar exato) quando comparamos dois modelos nas MESMAS questões.
-"""
-
 from __future__ import annotations
 
 import math
@@ -52,12 +44,7 @@ def summarize(records: list[dict]) -> dict:
 
 
 def mcnemar_exact(a: list[dict], b: list[dict]) -> dict:
-    """Compara dois modelos nas mesmas questões.
-
-    Só importam as questões em que eles DISCORDAM: b01 = A errou e B acertou,
-    b10 = A acertou e B errou. Sob a hipótese nula (modelos iguais), cada
-    discordância é cara-ou-coroa → teste binomial exato.
-    """
+    """Compara dois modelos nas mesmas questões."""
     ma = {r["qid"].split("#")[0]: r["correct"] for r in a}
     mb = {r["qid"].split("#")[0]: r["correct"] for r in b}
     common = ma.keys() & mb.keys()
@@ -80,15 +67,7 @@ def mcnemar_exact(a: list[dict], b: list[dict]) -> dict:
 
 
 def permutation_consistency(original: list[dict], permuted: list[list[dict]]) -> dict:
-    """Teste de contaminação por permutação das alternativas.
-
-    Para cada questão, olhamos se o modelo continua acertando quando a ordem
-    das alternativas muda. Medimos:
-    - queda de acurácia (original vs. média das permutações);
-    - "acertos frágeis": acertou na ordem original mas errou em alguma permutação.
-    Um modelo que memorizou a prova tende a ter queda e fragilidade maiores
-    nas provas antigas (que estavam na internet antes do treino dele).
-    """
+    """Teste de contaminação por permutação das alternativas."""
     orig = {r["qid"]: r["correct"] for r in original}
     perm_maps = [{r["qid"].split("#")[0]: r["correct"] for r in run} for run in permuted]
     common = [q for q in orig if all(q in m for m in perm_maps)]

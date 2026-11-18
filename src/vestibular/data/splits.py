@@ -1,15 +1,3 @@
-"""Divisão treino/validação/teste pensada para evitar vazamento.
-
-Regra principal: **o modelo nunca treina em ENEM**. O ENEM é o teste final.
-Também separamos por *ano*: treinamos em provas antigas (BLUEX até 2022) e
-testamos em provas mais novas (BLUEX 2024-2025). Assim a nota de teste mede
-generalização, e não memorização.
-
-    train : OAB (todas) + BLUEX 2018-2022
-    dev   : BLUEX 2023            (para escolher checkpoints/hiperparâmetros)
-    test  : ENEM 2022-2024 + BLUEX 2024-2025
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -46,7 +34,6 @@ def _assert_no_leak(train: list[Question], held_out: list[Question]) -> None:
     train_ids = {q.id for q in train}
     leaked = [q.id for q in held_out if q.id in train_ids]
     assert not leaked, f"Vazamento treino/teste: {leaked[:5]}"
-    # Checagem extra: mesmo enunciado em ambos (provas às vezes repetem textos).
     norm = lambda s: " ".join(s.lower().split())[:300]  # noqa: E731
     train_texts = {norm(q.statement) for q in train}
     dup = [q.id for q in held_out if norm(q.statement) in train_texts and len(q.statement) > 80]

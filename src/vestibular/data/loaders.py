@@ -1,9 +1,3 @@
-"""Carrega ENEM, BLUEX e OAB do Hugging Face e converte para `Question`.
-
-Usamos `huggingface_hub` + `polars` em vez da biblioteca `datasets`: é mais leve
-e funciona em máquinas onde o pyarrow não pode ser carregado.
-"""
-
 from __future__ import annotations
 
 import json
@@ -20,11 +14,8 @@ OAB_REPO = "eduagarcia/oab_exams"
 
 ENEM_YEARS = (2022, 2023, 2024)
 
-# No ENEM (formato dos dados da Maritaca): 45 questões por área, nesta ordem.
 ENEM_AREAS = ("linguagens", "humanas", "natureza", "matematica")
 
-# Mapeia as disciplinas do BLUEX para as 4 grandes áreas do ENEM,
-# para podermos comparar desempenho por área entre provas diferentes.
 SUBJECT_TO_AREA = {
     "mathematics": "matematica",
     "physics": "natureza",
@@ -46,17 +37,12 @@ def _download(repo: str, filename: str) -> str:
     return hf_hub_download(repo, filename, repo_type="dataset")
 
 
-# --------------------------------------------------------------------- ENEM
 def enem_area(number: int) -> str:
     return ENEM_AREAS[min((number - 1) // 45, 3)]
 
 
 def _fill_enem_placeholders(statement: str, alternatives: list[str]) -> tuple[str, list[str]]:
-    """Troca cada "[[placeholder]]" por "[IMAGEM i]".
-
-    As figuras do dataset seguem a ordem de leitura: primeiro as do enunciado,
-    depois as das alternativas. Por isso numeramos sequencialmente.
-    """
+    """Troca cada "[[placeholder]]" por "[IMAGEM i]"."""
     counter = 0
 
     def repl(_: re.Match) -> str:
@@ -72,7 +58,7 @@ def _fill_enem_placeholders(statement: str, alternatives: list[str]) -> tuple[st
 
 
 def enem_row_to_question(row: dict, year: int) -> Question | None:
-    if row["label"] not in "ABCDE" or len(row["label"]) != 1:  # questão anulada
+    if row["label"] not in "ABCDE" or len(row["label"]) != 1:
         return None
     number = int(row["id"].split("_")[-1])
     statement, alternatives = _fill_enem_placeholders(row["question"], list(row["alternatives"]))
@@ -101,7 +87,6 @@ def load_enem(year: int) -> list[Question]:
     return out
 
 
-# -------------------------------------------------------------------- BLUEX
 def bluex_row_to_question(row: dict) -> Question | None:
     answer = (row.get("answer") or "").strip().upper()
     alts = list(row.get("alternatives") or [])
@@ -110,7 +95,7 @@ def bluex_row_to_question(row: dict) -> Question | None:
     if "ABCDE".index(answer) >= len(alts):
         return None
 
-    parts = row["id"].split("_")  # ex.: USP_2023_35 ou UNICAMP_2021_39_day1
+    parts = row["id"].split("_")
     university, year = parts[0], int(parts[1])
     subjects = list(row.get("subject") or [])
     area = next((SUBJECT_TO_AREA[s] for s in subjects if s in SUBJECT_TO_AREA), "outros")
@@ -122,7 +107,6 @@ def bluex_row_to_question(row: dict) -> Question | None:
         img if img.startswith(("http", "data:")) else f"data:image/png;base64,{img}"
         for img in (row.get("associated_images") or [])
     ]
-    # context_captions descrevem a imagem levando em conta a questão; são as mais úteis.
     captions = list(row.get("context_captions") or row.get("blind_captions") or [])
 
     return Question(
@@ -146,7 +130,6 @@ def load_bluex() -> list[Question]:
     return sorted(out, key=lambda q: q.id)
 
 
-# ---------------------------------------------------------------------- OAB
 def oab_row_to_question(row: dict) -> Question | None:
     if row.get("nullified"):
         return None

@@ -8,13 +8,11 @@ Vestibular-BR é um projeto de pesquisa e engenharia que treina e avalia LLMs em
 2. **Imagem vs. descrição:** em questões com figuras, modelos multimodais de 2026 se saem melhor vendo a **imagem real** ou lendo uma **descrição textual** dela? ([um estudo de 2023 com GPT-4V](https://arxiv.org/abs/2311.14169) achou que a descrição vencia.)
 3. **Contaminação:** os modelos *entendem* as questões ou *decoraram* provas que estavam na internet? Medimos isso **embaralhando as alternativas** e comparando provas antigas vs. recentes.
 
-> 🔗 **Links** — Demo: `huggingface.co/spaces/SEU_USUARIO/vestibular-br` · Modelos: `huggingface.co/SEU_USUARIO` · Dataset: `huggingface.co/datasets/SEU_USUARIO/vestibular-br-data` · Artigo: _link_
-
 ---
 
 ## Resultados
 
-> _Tabela gerada automaticamente por `vbr report` → [`results/LEADERBOARD.md`](results/LEADERBOARD.md). Preencher após rodar os experimentos._
+Tabela completa: [`results/LEADERBOARD.md`](results/LEADERBOARD.md).
 
 | Modelo | ENEM 2022–24 | USP/Unicamp 24–25 | Observação |
 |---|---|---|---|
@@ -23,8 +21,7 @@ Vestibular-BR é um projeto de pesquisa e engenharia que treina e avalia LLMs em
 | Qwen3.5-2B + SFT | – | – | |
 | Qwen3.5-2B + GRPO | – | – | |
 | Qwen3.5-2B + SFT + GRPO | – | – | |
-| Qwen3.5-9B (base) | – | – | referência maior |
-| Gemini 2.5 Flash | – | – | professor / API |
+| Qwen3.5-9B (base) | – | – | professor |
 
 Todas as acurácias vêm com **intervalo de confiança de 95% (bootstrap)**, e comparações entre modelos usam **teste de McNemar pareado**. Em provas de ~180 questões, diferenças de 2–3 pontos costumam ser ruído.
 
@@ -41,12 +38,12 @@ flowchart LR
         N --> S{Splits por ano<br/>sem vazamento}
     end
     S -->|treino: OAB + BLUEX ≤2022| D[Destilação<br/>rejection sampling]
-    T[Modelo professor<br/>via API] --> D
+    T[Professor<br/>Qwen3.5-9B] --> D
     D --> SFT[SFT<br/>LoRA + Unsloth]
     SFT --> G[GRPO<br/>recompensa = acertou?]
     S -->|treino filtrado<br/>por dificuldade| G
     G --> HF[(HF Hub)]
-    S -->|teste: ENEM + BLUEX ≥2024| E[Avaliação<br/>vLLM / APIs]
+    S -->|teste: ENEM + BLUEX ≥2024| E[Avaliação<br/>vLLM]
     HF --> E
     E --> R[Relatório<br/>IC95%, McNemar,<br/>contaminação]
     R --> APP[Demo Gradio<br/>HF Space]
@@ -64,7 +61,7 @@ flowchart LR
 
 ### Técnicas
 
-- **Rejection sampling (destilação):** um modelo grande resolve cada questão de treino 4 vezes. Ficam só os raciocínios que **chegaram na resposta certa** (verificado pelo gabarito), e entre eles o mais curto.
+- **Rejection sampling (destilação):** o Qwen3.5-9B (mesma família, 4,5x maior) resolve cada questão de treino 4 vezes. Ficam só os raciocínios que **chegaram na resposta certa** (verificado pelo gabarito), e entre eles o mais curto.
 - **GRPO** ([DeepSeekMath](https://arxiv.org/abs/2402.03300)) com recompensa verificável: `+1` se acertou, `+0.1` pelo formato e uma penalidade leve para respostas longas demais. Usa `loss_type="dr_grpo"` (sem viés de tamanho) e `beta=0` (sem modelo de referência, economiza memória).
 - **Filtro de dificuldade:** o GRPO só aprende com questões em que o modelo às vezes acerta e às vezes erra. Questões 100% certas ou 100% erradas dão vantagem zero, então medimos pass@4 do modelo base e treinamos só nas do meio.
 - **LoRA em 4 bits (Unsloth)** para caber numa GPU T4 gratuita do Kaggle.
@@ -76,23 +73,21 @@ flowchart LR
 
 ```bash
 pip install -e ".[dev]"
-cp .env.example .env            # coloque sua GEMINI_API_KEY / HF_TOKEN
-
-vbr data                        # baixa e prepara os 3 datasets
-vbr eval -b enem_2024 -m mock:random                      # baseline (sem API)
-vbr eval -b enem_2024 -m gemini:gemini-2.5-flash --limit 20
-vbr eval -b enem -m gemini:gemini-2.5-flash --mode image  # imagem real
-vbr contamination -b bluex -m gemini:gemini-2.5-flash     # alternativas embaralhadas
-vbr distill -m gemini:gemini-2.5-flash --k 4              # dataset de SFT
-vbr report                                                # leaderboard + gráficos
-python app/app.py                                         # demo local
+vbr data                                              # baixa e prepara os 3 datasets
+vbr eval -b test -m mock:random                       # baseline aleatório
+vbr distill -m vllm:Qwen/Qwen3.5-9B --k 4             # dataset de SFT (GPU)
+vbr eval -b enem -m vllm:Qwen/Qwen3.5-2B --mode image # imagem real (GPU)
+vbr contamination -b bluex -m vllm:Qwen/Qwen3.5-9B    # alternativas embaralhadas (GPU)
+vbr report                                            # leaderboard + gráficos
+python app/app.py                                     # demo local
 ```
 
-Treino e avaliação de modelos locais rodam na GPU gratuita do Kaggle:
-- [`notebooks/01_avaliacao_vllm_kaggle.ipynb`](notebooks/01_avaliacao_vllm_kaggle.ipynb)
-- [`notebooks/02_treino_sft_grpo_kaggle.ipynb`](notebooks/02_treino_sft_grpo_kaggle.ipynb)
+Tudo que usa GPU roda no Kaggle (T4 x2, gratuita):
+- [`notebooks/01_destilacao_kaggle.ipynb`](notebooks/01_destilacao_kaggle.ipynb)
+- [`notebooks/02_avaliacao_vllm_kaggle.ipynb`](notebooks/02_avaliacao_vllm_kaggle.ipynb)
+- [`notebooks/03_treino_sft_grpo_kaggle.ipynb`](notebooks/03_treino_sft_grpo_kaggle.ipynb)
 
-Provedores suportados (qualquer API compatível com OpenAI): `gemini`, `openai`, `anthropic`, `hf` (Inference Providers), `maritaca`, `openrouter`, `local` (vLLM server), `vllm` (offline na GPU), `mock`.
+Também dá para avaliar modelos via API (qualquer endpoint compatível com OpenAI; use `--rpm` para respeitar limites): `gemini`, `openai`, `anthropic`, `hf` (Inference Providers), `maritaca`, `openrouter`, `local` (vLLM server), `vllm` (offline na GPU), `mock`.
 
 ## Estrutura
 

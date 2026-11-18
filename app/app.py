@@ -1,15 +1,3 @@
-"""Demo pública (Hugging Face Space, Gradio).
-
-Abas:
-  1. Leaderboard  — tabela de todos os modelos avaliados.
-  2. Explorador   — escolha uma questão e compare o raciocínio de cada modelo
-                    lado a lado (ótimo para análise de erros).
-  3. Pergunte     — cole uma questão e um modelo grande responde ao vivo
-                    (só funciona se o Space tiver o secret HF_TOKEN).
-
-Rodar local:  python app/app.py
-"""
-
 from __future__ import annotations
 
 import json

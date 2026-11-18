@@ -14,7 +14,6 @@ outputs/
 checkpoints/
 wandb/
 
-# resultados de avaliação SÃO versionados (são pequenos e são a prova do trabalho)
 !results/
 
 Screenshot*.png

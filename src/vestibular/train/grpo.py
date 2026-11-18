@@ -1,20 +1,3 @@
-"""Etapa 2 — GRPO: aprendizado por reforço com recompensa verificável.
-
-Para cada questão o modelo gera G respostas (um "grupo"). A vantagem de cada
-resposta é (recompensa - média do grupo) / desvio do grupo. Respostas que
-acertam são reforçadas, as que erram são desencorajadas — sem modelo de
-recompensa e sem modelo "crítico" (é isso que torna o GRPO barato).
-
-Filtro de dificuldade (opcional, mas recomendado): questões que o modelo SEMPRE
-acerta ou SEMPRE erra geram vantagem zero para o grupo todo — não ensinam nada
-e gastam GPU. Com --difficulty-from passamos um arquivo de predições do modelo
-base (n amostras por questão) e treinamos só nas questões "no limite" (0 < acerto < 1).
-
-Rodar na GPU (Kaggle/Colab):
-    python -m vestibular.train.grpo --out outputs/grpo                      # a partir do modelo base
-    python -m vestibular.train.grpo --init-adapter outputs/sft --out outputs/sft_grpo
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -63,7 +46,6 @@ def main():
     max_seq = args.max_prompt_length + args.max_completion_length
     model, tokenizer = load_model(args.model, max_seq, args.lora_rank)
     if args.init_adapter:
-        # Carrega os pesos LoRA do SFT por cima do adaptador recém-criado.
         from peft import set_peft_model_state_dict
         from safetensors.torch import load_file
 
@@ -97,8 +79,8 @@ def main():
         max_prompt_length=args.max_prompt_length,
         max_completion_length=args.max_completion_length,
         temperature=1.0,
-        beta=0.0,  # sem penalidade KL (prática comum hoje; economiza memória do modelo de referência)
-        loss_type="dr_grpo",  # remove o viés de tamanho da resposta do GRPO original
+        beta=0.0,
+        loss_type="dr_grpo",
         max_steps=args.max_steps,
         save_steps=50,
         logging_steps=1,
@@ -117,7 +99,6 @@ def main():
     trainer.train()
     model.save_pretrained(args.out)
     tok.save_pretrained(args.out)
-    # Salva o histórico (recompensa média por passo etc.) para os gráficos do relatório.
     with open(f"{args.out}/log_history.json", "w", encoding="utf-8") as f:
         json.dump(trainer.state.log_history, f, indent=1)
     if args.push_to:

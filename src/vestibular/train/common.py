@@ -1,11 +1,3 @@
-"""Partes comuns de SFT e GRPO: carregar o modelo com LoRA e renderizar prompts.
-
-Renderizamos o chat template NÓS MESMOS (string pronta) em vez de deixar o
-TRL fazer. Motivo: o Qwen3.5 tem modo "thinking" controlado por
-`enable_thinking`, e queremos garantir que treino e avaliação (vLLM) usem
-exatamente o mesmo prompt.
-"""
-
 from __future__ import annotations
 
 DEFAULT_MODEL = "unsloth/Qwen3.5-2B"
@@ -18,7 +10,7 @@ def load_model(model_name: str, max_seq_length: int, lora_rank: int, load_in_4bi
         model_name=model_name,
         max_seq_length=max_seq_length,
         load_in_4bit=load_in_4bit,
-        fast_inference=False,  # Qwen3.5 não roda com o vLLM interno do Unsloth
+        fast_inference=False,
     )
     model = FastLanguageModel.get_peft_model(
         model,

@@ -1,9 +1,3 @@
-"""Baixa imagens remotas e converte para data URL base64 (com cache em disco).
-
-Várias APIs não aceitam URL externa de imagem, ou falham quando o GitHub
-demora. Mandar base64 é o caminho mais robusto.
-"""
-
 from __future__ import annotations
 
 import base64
