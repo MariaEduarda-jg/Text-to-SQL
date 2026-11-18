@@ -18,3 +18,5 @@ wandb/
 !results/
 
 Screenshot*.png
+
+Text-to-SQL/
